@@ -1,0 +1,8 @@
+jinja2==3.0.3
+yangson==1.3.45
+yangify==0.1.3
+pyinstaller==4.10
+lxml==4.9.4
+regex==2023.8.8
+pexpect==4.9.0
+netconf-client

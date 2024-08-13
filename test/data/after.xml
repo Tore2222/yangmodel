@@ -1,0 +1,14 @@
+<VHT-segment-routing:segment-routing>
+   <mpls>
+      <connected-prefix-sid-map>
+        <address-family>
+          <ipv4>
+            <prefixes>
+              <ipprefix>15.16.17.18/32</ipprefix>
+              <index>20</index>
+            </prefixes>
+          </ipv4>
+        </address-family>
+      </connected-prefix-sid-map>
+   </mpls>
+</VHT-segment-routing:segment-routing>

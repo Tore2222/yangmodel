@@ -1,0 +1,343 @@
+#!/usr/bin/env python3
+import argparse
+import os
+import json
+import keyword
+import re
+from enum import Enum
+from jinja2 import Environment, FileSystemLoader
+from yangson.schemanode import SchemaTreeNode, ContainerNode, ListNode, LeafNode, LeafListNode
+from yangson import DataModel
+from yangson.datatype import *
+from pprint import pprint
+from defines import *
+
+config = None
+
+def NODE_VARNAME_IS_INVALID_IN_PYTHON(name):
+    invalid =  (name in keyword.kwlist)
+    if invalid:
+        print(F"use invalid python varname {name}")
+    return invalid
+
+def NODE_IS_LEAFFAMILY_NODE(node):
+    for lefttype in [LeafNode, LeafListNode]:
+        if isinstance(node, lefttype):
+            return True
+    return False
+
+def NODE_IS_ROOT_NODE(node):
+    return isinstance(node.parent, SchemaTreeNode)
+
+def NODE_IS_CONTAINER_NODE(node):
+    return isinstance(node, ContainerNode)
+
+def NODE_IS_LIST_NODE(node):
+    return isinstance(node, ListNode)
+
+def NODE_DATATYPE_IS_INTEGER(node):
+    if hasattr(node, 'type'):
+        if isinstance(node.type, IntegralType):
+            return True
+    return False
+
+def NODE_DATATYPE_CASTING_FUNCITON(node):
+    if NODE_DATATYPE_IS_INTEGER(node):
+        return 'int'
+    return None
+
+class StringFunc:
+    def node_to_py_filename(node):
+        return node.name.replace('-', '_') + ".py"
+
+    def title(string, separate_by):
+        words = [w.capitalize() for w in string.split(separate_by)]
+        return ''.join(words)
+
+    def command_to_undo_command(cmd, default=None):
+        if 'enable' in cmd:
+            return cmd.replace('enable', 'disable')
+
+        return 'no ' + cmd
+
+class RenderContextTool(object):
+
+    def get_context_map(self, nodes):
+        context_map = {}
+        for node in nodes:
+            self._get_context_map(context_map, node)
+        return context_map
+
+    def get_node_default_context(self, context_map, node):
+        parent = node.parent
+        par_ctx = context_map.get(parent)
+
+        context_map[node] = ctx = {
+            TRANS  : True,
+            PARSER : True,
+            NODE_REFERENCE           : node,
+            NODE_VARNAME             : node.name.replace('-', '_'),
+            NODE_SPACENAME           : node.name.replace('-', ' '),
+            NODE_DATAPATH            : node.data_path(),
+            NODE_CONTNODE_CHILDREN   : [],
+            NODE_LISTNODE_CHILDREN   : [],
+            NODE_LEAFFAMILY_CHILDREN : [],
+        }
+
+        if NODE_IS_ROOT_NODE(node):
+            ctx[NODE_CLASSNAME] = StringFunc.title(ctx[NODE_VARNAME], separate_by='_')
+        else:
+            ctx[NODE_CLASSNAME] = par_ctx[NODE_CLASSNAME] + '_' + StringFunc.title(ctx[NODE_VARNAME], separate_by='_')
+
+        ctx[NODE_IMPL_CLASSNAME] = ctx[NODE_CLASSNAME] + '_Impl'
+
+
+        ctx[CLI_HAS_SUBMODE] = True
+
+        if NODE_IS_LIST_NODE(node):
+            ctx[LISTNODE_KEYS] =  [k for k, _ in node.keys]
+
+            # "ip route prefix {prefix} mask {mask}" (one-line CLI)
+            # "no ip route prefix {prefix} mask {mask}" (one-line CLI)
+
+            fmt = ctx[NODE_SPACENAME] + ' ' + ' '.join([f"{keyname} {{{keyname}}}" for keyname in ctx[LISTNODE_KEYS]])
+            ctx[TRANS_LISTNODE_CLI_FMT]        = fmt
+            ctx[TRANS_LISTNODE_UNDO_CLI_FMT]   = StringFunc.command_to_undo_command(fmt)
+
+        if not NODE_IS_LEAFFAMILY_NODE(node):
+
+            if NODE_IS_ROOT_NODE(node):
+                ctx[TRANS_CLI_INDENT_1] = CLI_INDENT_MODE_CONFIG
+                ctx[TRANS_CLI_INDENT_2] = CLI_INDENT_MODE_CONFIG + CLI_INDENT_BETWEEN_MODE
+            elif NODE_IS_LIST_NODE(parent):
+                ctx[TRANS_CLI_INDENT_1] = par_ctx[TRANS_CLI_INDENT_2]
+                ctx[TRANS_CLI_INDENT_2] = par_ctx[TRANS_CLI_INDENT_2] + CLI_INDENT_BETWEEN_MODE
+            else:
+                ctx[TRANS_CLI_INDENT_1] = par_ctx[TRANS_CLI_INDENT_1]
+                ctx[TRANS_CLI_INDENT_2] = par_ctx[TRANS_CLI_INDENT_2]
+
+            ctx[TRANS_LEAFFAMILY_CLI_PREFIX] = ""
+            if NODE_IS_ROOT_NODE(node) or NODE_IS_LIST_NODE(node):
+                ctx[TRANS_LEAFFAMILY_CLI_PREFIX] = ""
+            elif ctx[TRANS_LEAFFAMILY_CLI_PREFIX] != "":
+                ctx[TRANS_LEAFFAMILY_CLI_PREFIX] = ' '.join([ctx[TRANS_LEAFFAMILY_CLI_PREFIX], node.name])
+            else:
+                ctx[TRANS_LEAFFAMILY_CLI_PREFIX] = node.name
+
+            if NODE_IS_ROOT_NODE(node):
+                ctx[PARSER_ELEMENT_EXTRACT_PATH] = node.name.split('-')
+            else:
+                ctx[PARSER_ELEMENT_EXTRACT_PATH] = [*par_ctx[PARSER_ELEMENT_EXTRACT_PATH] ,*node.name.split('-')]
+
+            if NODE_IS_ROOT_NODE(node):
+                ctx[PARSER_USE_ROOT_NATIVE] = True
+            elif NODE_IS_LIST_NODE(parent):
+                ctx[PARSER_USE_ROOT_NATIVE] = False
+            else:
+                ctx[PARSER_USE_ROOT_NATIVE] = par_ctx[PARSER_USE_ROOT_NATIVE]
+
+    def get_node_custom_context(self, context_map, node):
+        if node.data_path() in ["/VHT-ip-cfg:ip/route/ip-route-static",
+                                "/VHT-ospf-cfg:router/ospf/process-id/network",
+                                "/VHT-segment-routing:segment-routing/mpls/connected-prefix-sid-map/address-family/ipv4/prefixes",
+                                "/VHT-segment-routing:segment-routing/mpls/global-block",
+                                "/VHT-segment-routing:segment-routing/mpls/local-block",
+                                "/VHT-segment-routing:segment-routing/traffic-eng/segment-list/index",
+                                "/VHT-segment-routing:segment-routing/traffic-eng/policy/color-endpoint"]:
+            print(F"set NODE {node.data_path()} as ONE-LINE CLI")
+            context_map[node][CLI_HAS_SUBMODE] = False
+
+
+    def _get_context_map(self, context_map, node):
+        self.get_node_default_context(context_map, node)
+        self.get_node_custom_context(context_map, node)
+
+        if hasattr(node, 'children'):
+            ctx = context_map[node]
+            for child in node.children:
+                self._get_context_map(context_map, child)
+                child_ctx = context_map[child]
+
+                elm_ctx = {
+                    NODE_REFERENCE : child,
+                    NODE_DEFAULT   : child.default if hasattr(child, 'default') else None,
+                    NODE_VARNAME   : child_ctx[NODE_VARNAME],
+                    NODE_SPACENAME : child_ctx[NODE_SPACENAME],
+                    NODE_DATACAST  : None,
+                }
+
+                if NODE_IS_LEAFFAMILY_NODE(child):
+                    if ctx[PARSER_USE_ROOT_NATIVE]:
+                        elm_ctx[PARSER_LEAFFAMILY_EXTRACT_PATH] = [*ctx[PARSER_ELEMENT_EXTRACT_PATH], *node.name.split('-'), '#text']
+                    else:
+                        elm_ctx[PARSER_LEAFFAMILY_EXTRACT_PATH] = [*child_ctx[NODE_VARNAME].split('-'), '#text']
+
+                    if len(ctx[TRANS_LEAFFAMILY_CLI_PREFIX]) > 0:
+                        fmt = ctx[TRANS_LEAFFAMILY_CLI_PREFIX] + ' ' + child_ctx[NODE_SPACENAME] + f" {{}}"
+                    else:
+                        fmt = child_ctx[NODE_SPACENAME] + f" {{}}"
+
+                    elm_ctx[TRANS_LEAFFAMILY_CLI_FMT]      = fmt
+                    elm_ctx[TRANS_LEAFFAMILY_UNDO_CLI_FMT] = StringFunc.command_to_undo_command(fmt)
+
+                elm_ctx[NODE_CLASSNAME] = child_ctx[NODE_CLASSNAME]
+                elm_ctx[NODE_IMPL_CLASSNAME] = child_ctx[NODE_IMPL_CLASSNAME]
+
+                if NODE_IS_CONTAINER_NODE(child):
+                    ctx[NODE_CONTNODE_CHILDREN].append(elm_ctx)
+                elif NODE_IS_LIST_NODE(child):
+                    ctx[NODE_LISTNODE_CHILDREN].append(elm_ctx)
+                else:
+                    ctx[NODE_LEAFFAMILY_CHILDREN].append(elm_ctx)
+
+
+
+class JinjaRender(object):
+    def __init__(self, config):
+        super(JinjaRender, self).__init__()
+        self.config = config
+        self.env = Environment(loader=FileSystemLoader("jinja_templates"))
+        self.templates = {
+            CODEGEN_CLASSTYPE_PARSER : {
+                CODEGEN_TYPE_COMMON : self.env.get_template("template_parser.jinja"),
+                CODEGEN_TYPE_IMPL : self.env.get_template("template_parser_impl.jinja"),
+            },
+            CODEGEN_CLASSTYPE_TRANSLATOR : {
+                CODEGEN_TYPE_COMMON : self.env.get_template("template_translator.jinja"),
+                CODEGEN_TYPE_IMPL : self.env.get_template("template_translator_impl.jinja"),
+            }
+        }
+
+        function_dict = {}
+        for func in [NODE_IS_LIST_NODE,
+                     NODE_DATATYPE_CASTING_FUNCITON,
+                     NODE_DATATYPE_IS_INTEGER,
+                     NODE_VARNAME_IS_INVALID_IN_PYTHON]:
+            function_dict[func.__name__] = func
+
+        for k1, v in self.templates.items():
+            for k2, templ in v.items():
+                templ.globals.update(function_dict)
+
+    def render_pyclass(self, context, gen_classtype):
+        txt = self.templates[gen_classtype][self.config.gen_type].render(context)
+        return txt
+
+
+class CodeGenTool(object):
+    IMPORTS = {
+        CODEGEN_CLASSTYPE_PARSER: {
+            CODEGEN_TYPE_COMMON: """
+from yangify.parser import Parser, ParserData, unneeded
+from vht.helper import *
+from pprint import pprint
+from scanf import scanf
+""",
+            CODEGEN_TYPE_IMPL: """
+from yangify.parser import Parser, ParserData, unneeded
+from vht.helper import *
+from pprint import pprint
+from scanf import scanf
+"""
+        },
+        CODEGEN_CLASSTYPE_TRANSLATOR : {
+            CODEGEN_TYPE_COMMON: """
+from yangify.translator import Translator, TranslatorData, unneeded
+from vht.helper import *
+from pprint import pprint
+""",
+            CODEGEN_TYPE_IMPL: """
+from yangify.translator import Translator, TranslatorData, unneeded
+from vht.helper import *
+from pprint import pprint
+"""
+        }
+    }
+
+    def __init__(self):
+        super(CodeGenTool, self).__init__()
+        self.jinja_render = JinjaRender(config)
+
+    def _prepare(self, gen_classtype, rootnode):
+        """
+            E.g:
+            data_path : /VHT-bgp-cfg:router
+            modname   : VHT_bgp_cfg
+            filename  : router.py
+        """
+        modname = re.search("/(.*):", rootnode.data_path()).group(1).replace('-','_')
+        dirpath = os.path.join(config.gen_output_base_dir,
+                               config.gen_type,
+                               gen_classtype,
+                               modname)
+        filename = StringFunc.node_to_py_filename(node=rootnode)
+        filepath = os.path.join(dirpath, filename)
+
+        os.makedirs(dirpath, exist_ok=True)
+        if os.path.isfile(filepath):
+            os.remove(filepath)
+
+        imports = CodeGenTool.IMPORTS[gen_classtype][config.gen_type]
+
+        return filepath, imports
+
+    def gen_all_yang_modules(self, nodes, context_map, gen_classtype):
+        for rootnode in nodes:
+            filepath, imports = self._prepare(gen_classtype, rootnode)
+
+            with open(filepath, 'a') as fp:
+                fp.write(imports)
+
+            self.gen_yang_node_recursively(rootnode, context_map, gen_classtype, filepath)
+
+    def gen_yang_node_recursively(self, node, context_map, gen_classtype, filepath):
+        if NODE_IS_LEAFFAMILY_NODE(node):
+            return
+
+        if gen_classtype == CODEGEN_CLASSTYPE_TRANSLATOR and not context_map[node][CLI_HAS_SUBMODE]:
+            # TRANSLATOR: json/xml to single line CLI: no need to generate Children's Translators
+            self.gen_yang_node(node, context_map, gen_classtype, filepath)
+        else:
+            for child in node.children:
+                self.gen_yang_node_recursively(child, context_map, gen_classtype, filepath)
+
+            self.gen_yang_node(node, context_map, gen_classtype, filepath)
+
+    def gen_yang_node(self, node, context_map, gen_classtype, filepath):
+        assert (not NODE_IS_LEAFFAMILY_NODE(node))
+
+        with open(filepath, 'a') as fp:
+            txt = self.jinja_render.render_pyclass(context=context_map[node], gen_classtype=gen_classtype)
+            fp.write(txt)
+
+
+if __name__ == '__main__':
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-d', '--debug-level', type=int, default=1)
+    parser.add_argument('-l', '--yang-module-define', default='vht/yang/yang-library.json')
+    parser.add_argument('-p', '--yang-module-path', action='append', default=["vht/yang/modules", "../test-yangson/yangson/yang-modules/ietf"])
+    parser.add_argument('-t', '--gen-type', choices=[CODEGEN_TYPE_COMMON, CODEGEN_TYPE_IMPL], default=CODEGEN_TYPE_COMMON)
+    parser.add_argument('-o', '--gen-output-base-dir', default="output")
+    config = parser.parse_args()
+
+    print("VHT YANG modules code generation with following options:", config)
+
+    dm = DataModel.from_file(config.yang_module_define, config.yang_module_path)
+    if config.debug_level >= 1:
+        print("ASCII TREE:\n", dm.ascii_tree())
+
+    tool = RenderContextTool()
+    context_map = tool.get_context_map(nodes=dm.schema.children)
+    if config.debug_level >= 2:
+        pprint(context_map)
+
+    codegen = CodeGenTool()
+
+    codegen.gen_all_yang_modules(nodes=dm.schema.children,
+                                 context_map=context_map,
+                                 gen_classtype=CODEGEN_CLASSTYPE_PARSER)
+
+    codegen.gen_all_yang_modules(nodes=dm.schema.children,
+                                 context_map=context_map,
+                                 gen_classtype=CODEGEN_CLASSTYPE_TRANSLATOR)

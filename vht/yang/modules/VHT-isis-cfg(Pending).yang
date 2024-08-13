@@ -1,0 +1,463 @@
+module VHT-isis-cfg {
+  namespace "http://viettel.com/vht/yang/VHT-isis-cfg";
+  prefix vht-isis-cfg;  
+  
+  import ietf-inet-types {
+    prefix inet;
+  }
+
+  organization
+    "VIETTEL";
+  contact
+    "VIETTEL";
+  description
+    "VHT ISIS 100G";
+    
+  revision 2024-05-31 {
+    description
+      "Created";
+  }
+  
+  grouping config-ospf-auto-cost-grouping {
+    container auto-cost {
+      description
+        "Calculate OSPF interface cost according to bandwidth";
+      leaf reference-bandwidth {
+        description
+          "Use reference bandwidth method to assign OSPF cost, unit: Mbps";
+        type uint32 {
+          range "1 .. 4294967";
+        }
+        default "100";
+      }
+    }    
+  }
+  
+  grouping config-ospf-bfd-grouping {
+    container bfd {
+      description
+        "BFD configuration commands";
+      leaf all-interfaces {
+        description
+          "Enable BFD on all interfaces";
+        // presence "true";
+        type empty;
+      }
+    }
+  }
+
+  grouping config-ospf-default-information-grouping {
+    container default-information {
+      description
+        "Control distribution of default information";
+      container originate {
+        description
+          "Distribute a default route";
+        presence "true";
+        leaf always {
+          description
+            "Always advertise default route";
+          type empty;
+        }
+        leaf metric {
+          description
+            "OSPF default metric";
+          type uint32 {
+            range "0 .. 16777214";
+          }
+        }
+        leaf metric-type {
+          description
+            "OSPF metric type for default routes";
+          type uint32 {
+            range "1 .. 2";
+          }
+        }
+        leaf route-map {
+          description
+            "Route map reference";
+          type string;
+        }
+      }
+    }
+  }
+
+  grouping config-ospf-default-metric-grouping {
+    leaf default-metric {
+      description
+        "Set metric of redistributed routes";
+      type uint32 {
+        range "1 .. 16777214";
+      }
+    }
+  }
+  
+  grouping config-ospf-distribute-grouping {
+    container distribute {
+      container link-state {
+        leaf instance-id {
+          type uint32;
+        }
+      }
+    }
+  }
+
+  grouping config-ospf-max-metric-grouping {
+    container max-metric {
+      description
+        "Set maximum metric";
+      container router-lsa {
+        description
+          "Maximum metric in self-originated router-LSAs";
+        presence "true";
+        container on-startup {
+          description
+            "Set maximum metric temporarily after reboot";
+          choice time-wait-for-bgp-choice {
+            leaf time {
+              type uint32 {
+                range "5 .. 86400";
+              }
+            }
+            leaf wait-for-bgp {
+              description
+                "Let BGP decide when to originate router-LSA with normal metric";
+              type empty;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  grouping config-ospf-network-grouping {
+    list network {
+      description
+        "Enable routing on an IP network";
+      key "ip wildcard";
+      leaf ip {
+        description
+          "Network number";
+        type inet:ipv4-address;
+      }
+      leaf wildcard {
+        description
+          "OSPF wild card bits";
+        type inet:ipv4-address;
+      }
+      leaf area {
+        description
+          "Set the OSPF area ID";
+        mandatory true;
+        type union {
+          type uint32 {
+            range "0 .. 4294967295";
+          }
+          type inet:ipv4-address;
+        }
+      }
+    }
+  }
+ 
+  grouping config-ospf-passive-interface-grouping {
+    container passive-interface {
+      description
+        "Suppress routing updates on an interface";
+      leaf-list interface {
+        type string;
+      }
+    }
+  }
+ 
+  grouping config-ospf-redist-common-grouping {
+    leaf metric {
+      description
+        "Metric for redistributed routes";
+      type uint32 {
+        range "0..16777214";
+      }
+    }
+    leaf metric-type {
+      description
+        "OSPF/IS-IS exterior metric type for redistributed routes";
+      type enumeration {
+        enum 1;
+        enum 2;
+      }
+    }
+    leaf route-map {
+      description
+        "Route map reference";
+      type string;
+    }
+    leaf tag {
+      description
+        "Set tag for routes redistributed into OSPF";
+      type uint32 {
+        range "0..4294967295";
+      }
+    }
+  }
+ 
+  grouping config-ospf-redistribute-grouping {
+    container redistribute {
+      description
+        "Redistribute information from another routing protocol";
+      container bgp {
+        uses config-ospf-redist-common-grouping;
+      }
+      container connected {
+        uses config-ospf-redist-common-grouping;
+      }
+      container isis {
+        uses config-ospf-redist-common-grouping;
+      }
+      list ospf {
+        key "process-id";
+        leaf process-id {
+          type uint16 {
+            range "1..65535";
+          }
+        }
+        uses config-ospf-redist-common-grouping;      
+      }
+      container rip {
+        uses config-ospf-redist-common-grouping;
+      }
+      container static {
+        uses config-ospf-redist-common-grouping;
+      }
+    }
+  }
+
+  grouping config-ospf-router-id-grouping {
+    leaf router-id {
+      description
+        "Override configured  entifier (peers will reset)";
+      type inet:ipv4-address;
+    }
+  }
+
+  grouping config-ospf-shutdown-grouping {
+    leaf shutdown {
+      description
+        "Shutdown the OSPF protocol under the current instance";
+      type boolean;
+      default "false";
+    }
+  }
+
+  grouping config-ospf-timers-grouping {
+    container timers {
+      description
+        "Adjust routing timers";
+      container lsa {
+        description
+          "OSPF LSA timers";
+        leaf arrival {
+          description
+            "OSPF LSA arrival timer";
+          type uint32 {
+            range "0 .. 600000";
+          }
+          default "100";
+        }
+      }
+      container throttle {
+        description
+          "OSPF throttle timers";
+        container lsa {
+          description
+            "OSPF LSA throttle timers";
+          container all {   
+            leaf start-delay {
+              description
+                "Starting Delay for LSA Generation calculation in milliseconds";
+              type uint32 {
+                range "0 .. 600000";
+              }
+            }
+            leaf incre-delay {
+              description
+                "Incremental Delay for LSA Generation calculation in milliseconds";
+              must '../delay <= .' {
+                error-message "minimum delay has to greater then or equal to delay";
+              }
+              type uint32 {
+                range "1 .. 600000";
+              }
+            }
+            leaf max-delay {
+              description
+                "Maximum Delay for LSA Generation calculation in milliseconds";
+              must '../start-delay <= .' {
+                error-message "maximum delay has to greater then or equal to minimum delay";
+              }
+              type uint32 {
+                range "1 .. 600000";
+              }
+            }
+          }
+        }
+      }
+      container spf {
+        description
+          "OSPF SPF throttle timers";
+        container exp {
+          leaf min-delay {
+            description
+              "Minimum delay between receiving a change to SPF calculation in milliseconds";
+            must '../delay <= .' {
+              error-message "minimum delay has to greater then or equal to delay";
+            }
+            type uint32 {
+              range "1 .. 2147483647";
+            }
+          }
+          leaf max-delay {
+            description
+              "Maximum delay between receiving a change to SPF calculation in milliseconds";
+            must '../min-delay <= .' {
+              error-message "maximum delay has to greater then or equal to minimum delay";
+            }
+            type uint32 {
+              range "1 .. 2147483647";
+            }
+          }
+        }
+      }
+    }
+  }
+
+  grouping config-ospf-router-sub-mode-common-grouping {
+    uses config-ospf-auto-cost-grouping;
+    uses config-ospf-bfd-grouping;
+    uses config-ospf-default-information-grouping;
+    uses config-ospf-default-metric-grouping;
+    uses config-ospf-distribute-grouping;
+    uses config-ospf-max-metric-grouping;
+    uses config-ospf-network-grouping;
+    uses config-ospf-passive-interface-grouping;
+    uses config-ospf-redistribute-grouping;
+    uses config-ospf-router-id-grouping;
+    uses config-ospf-shutdown-grouping;
+    uses config-ospf-timers-grouping;
+  }
+  
+  grouping config-ospf-fast-reroute-grouping {
+    container fast-reroute {
+      container ti-lfa  {
+        leaf enable {
+          description
+            "Enable TI-LFA on OSPF process";
+          type empty;
+        }
+        leaf route-map {
+          description
+            "Route-map to filter which prefix to calculate backup-path on";
+          type string;
+        }
+        leaf node-protection-required {
+          description
+            "Enable node protection";
+          type empty;
+        }
+        container detection {
+          leaf bfd {
+            description
+              "Enable bfd as detection mechanism";
+            type empty;
+          }
+        }
+        container delay {
+          container switchover  {
+            leaf time {
+              description  
+                "delay time in milliseconds";
+              type uint16  {
+                range "1..5000";
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  grouping config-ospf-sr-grouping {
+    container segment-routing {
+      description
+        "Segment routing parameters";
+      leaf mpls {
+        description
+          "Enable segment routing MPLS";
+        //must '/ios:native/ios:segment-routing/ios-segment-routing:mpls' {
+        //  error-message "Global segment-routing must be configured before configuring on router ospf";
+        //}
+        type empty;
+      }
+    }
+  }
+  
+  grouping config-ospf-router-sub-mode-grouping {
+    uses config-ospf-router-sub-mode-common-grouping;
+    uses config-ospf-fast-reroute-grouping;
+    uses config-ospf-sr-grouping;
+  }
+  
+  grouping config-ospf-router-sub-mode-vrf-grouping {
+    uses config-ospf-router-sub-mode-common-grouping;  
+    // OSPF process in VRF currently doesn't support SR and fast-reroute  
+  }
+  
+
+  grouping config-isis-router-grouping {
+    container router {
+      description
+        "Router ISIS";
+      container ISIS {
+        list process-id {
+          description
+            "Open Shortest Path First (OSPF)";
+          key "id";
+          leaf id {
+            description
+              "Process ID";
+            type uint16 {
+              range "1..65535";
+            }
+          }
+          uses config-ospf-router-sub-mode-grouping;
+        }
+        list process-id-vrf {
+          description
+            "Open Shortest Path First (OSPF)";
+          key "id vrf";
+          leaf id {
+            description
+              "Process ID";
+            type uint16 {
+              range "1..65535";
+            }
+            must 'not (../../process-id[id=current()])' {
+              error-message "process-id current() already comfigured under global";
+            }
+          }
+          leaf vrf {
+            description
+              "VPN Routing/Forwarding Instance";
+            type string;
+          }
+          uses config-ospf-router-sub-mode-vrf-grouping;
+        }
+      }
+    }
+  }
+     
+  uses config-isis-router-grouping;
+  
+  //augment "/vht-if:interface/vht-if:ip" {
+  //  uses config-ospf-interface-ip-ospf-grouping;  // TODO: ADD later
+  //}
+  
+}

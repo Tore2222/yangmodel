@@ -1,0 +1,124 @@
+{	
+  "test-segment-routing":[
+	{
+		"VHT-segment-routing:segment-routing" : {
+			"mpls" : {
+				"connected-prefix-sid-map" : {
+					"address-family" : {
+						"ipv4" : {
+							"prefixes" : [
+								{
+									"ipprefix" : "1.2.3.4/32",
+									"index" : 1
+								},
+								{
+									"ipprefix" : "10.2.3.4/32",
+									"absolute" : 20
+								}
+							]
+						}
+					}
+				},
+				"global-block" : {
+					"range-end" : 29000,
+					"range-start" : 16000
+				},
+				"local-block" : {
+					"range-end" : 32000,
+					"range-start" : 17000
+				}
+			},
+			"traffic-eng" : {
+				"segment-list" : [
+					{
+						"name" : "POL1",
+						"index": [
+							{ "index" : 1, "mpls" : { "label" : 32} },
+							{ "index" : 2, "mpls" : { "prefix" : "30.30.30.30"} },
+							{ "index" : 3, "mpls" : { "adjacency" : "7.7.7.7"} }
+						]
+					}
+				],
+				"policy" : [
+					{
+						"name" : "MYPOL1",
+						"color-endpoint" : { "color" : 200, "end-point" : "3.5.7.9" },
+						"binding-sid" : { "mpls" : 100 }
+					},
+					{
+						"name" : "MYPOL2",
+						"color-endpoint" : { "color" : 222, "end-point" : "2.4.6.8" },
+						"binding-sid" : { "mpls" : 333 },
+						"candidate-paths" : {
+							"preference" : [
+								{ "preference" : 100 },
+								{ "preference" : 101 }
+							]
+						}
+					}
+				]
+			}
+		}
+	},
+	{
+		"VHT-segment-routing:segment-routing" : {
+			"mpls" : {
+				"connected-prefix-sid-map" : {
+					"address-family" : {
+						"ipv4" : {
+							"prefixes" : [
+								{
+									"ipprefix" : "1.2.3.4/32",
+									"index" : 1
+								},
+								{
+									"ipprefix" : "10.2.3.4/32",
+									"absolute" : 20
+								}
+							]
+						}
+					}
+				},
+				"global-block" : {
+					"range-end" : 29000,
+					"range-start" : 16000
+				},
+				"local-block" : {
+					"range-end" : 32000,
+					"range-start" : 17000
+				}
+			},
+			"traffic-eng" : {
+				"segment-list" : [
+					{
+						"name" : "POL1",
+						"index": [
+							{ "index" : 1, "mpls" : { "label" : 32} },
+							{ "index" : 2, "mpls" : { "prefix" : "30.30.30.30"} },
+							{ "index" : 3, "mpls" : { "adjacency" : "7.7.7.7"} }
+						]
+					}
+				],
+				"policy" : [
+					{
+						"name" : "MYPOL1",
+						"color-endpoint" : { "color" : 200, "end-point" : "3.5.7.9" },
+						"binding-sid" : { "mpls" : 100 }
+					},
+					{
+						"name" : "MYPOL2",
+						"color-endpoint" : { "color" : 222, "end-point" : "2.4.6.8" },
+						"binding-sid" : { "mpls" : 333 },
+						"candidate-paths" : {
+							"preference" : [
+								{ "preference" : 100 },
+								{ "preference" : 101 }
+							]
+						}
+					}
+				]
+			}
+		}
+	}
+  ]
+}

@@ -1,0 +1,128 @@
+{# Parser common class generator  #}
+
+class {{ node_classname }}(Parser):
+
+    class Yangify(ParserData):
+        path = "{{ node_path }}"
+
+        def __init__(self, *args, **kwargs):
+            super({{ node_classname }}.Yangify, self).__init__(*args, **kwargs)
+            {%- if NODE_IS_LIST_NODE(node) %}
+            self.elements_extract_path = {{ parser_element_extract_path }}
+            {%- endif %}
+
+        @debug_function(log_enter=True, log_exit=True)
+        def pre_process(self):
+            pass
+
+        @debug_function(log_enter=True, log_exit=True)
+        def post_process(self):
+            pass
+
+        {%- if NODE_IS_LIST_NODE(node) %}
+        """
+            @keys = {{ ', '.join(listnode_keys) }}
+        """
+        def elements_extract_source(self):
+            {%- if parser_root_native %}
+            return self.root_native['show run']
+            {%- else %}
+            return self.native
+            {%- endif %}
+
+        def extract_raw_elements(self):
+            source   = self.elements_extract_source()
+            elements = search_by_path(source, self.elements_extract_path)
+            return elements
+
+        def extract_elements(self):
+            elements = self.extract_raw_elements()
+            if elements is not None :
+            {%- if listnode_keys|length == 1 %}
+                for k, v in elements.items():
+                    if k.startswith("#"):
+                        continue
+                    yield k, v
+
+            {%- elif listnode_keys|length == 2 %}
+                for k1, v1 in elements.items():
+                    if k1.startswith("#"):
+                        continue
+                    for k2, v2 in v1.items():
+                        if k2.startswith("#"):
+                            continue
+                        yield (k1, k2), v2
+            {%- else %}
+                raise NotImplementedError
+            {%- endif %}
+        {%- endif %}
+
+
+    def __init__(self, *args, **kwargs):
+        super({{ node_classname }}, self).__init__(*args, **kwargs)
+        self.leaffamily_extract_paths = {}
+        {%- for n in node_sub_remained_nodes %}
+            {%- if 'parser_leaffamily_extract_path' in n %}
+        self.leaffamily_extract_paths['{{ n.node_varname }}'] = {{ n.parser_leaffamily_extract_path }}
+            {%- endif %}
+        {%- endfor %}
+
+
+{%- for n in node_sub_container_nodes %}
+    {{ n.node_varname }} = {{ n.node_classname }}
+{% endfor %}
+
+
+{%- for n in node_sub_list_nodes %}
+    {{ n.node_varname }} = {{ n.node_classname }}
+{% endfor %}
+
+
+{#- ##################################################################################### #}
+{#-                   BEGIN: DEFINITION FOR leaf-node, leaflist-node ...                  #}
+{#- ##################################################################################### #}
+
+    {%- if node_sub_remained_nodes|length > 0 %}
+    def leaffamily_extract_source(self):
+        {%- if parser_root_native and not NODE_IS_LIST_NODE(node) %}
+        return self.yy.root_native['show run']
+        {%- else %}
+        return self.yy.native
+        {%- endif %}
+    {%- endif %}
+
+{%- for n in node_sub_remained_nodes %}
+    {%- if n.node_default %}
+    """
+        @default = {{ n.node_default }}
+    """
+    {%- endif %}
+    def extract_{{ n.node_varname }}(self):
+        {%- if NODE_IS_LIST_NODE(node) and n.node_varname in listnode_keys %}
+            {%- if listnode_keys|length == 1 %}
+        return self.yy.key
+            {%- else %}
+        return self.yy.key[{{ listnode_keys.index(n.node_varname) }}]
+            {%- endif %}
+        {%- else %}
+        return search_by_path(self.leaffamily_extract_source(),
+                              self.leaffamily_extract_paths['{{ n.node_varname }}'])
+        {%- endif %}
+
+    {%- if NODE_VARNAME_IS_INVALID_IN_PYTHON(n.node_varname) %}
+    """
+    {%- endif %}
+    @debug_function(log_exit=True, log_return=True)
+    {%- if NODE_DATATYPE_CASTING_FUNCITON(n.node) %}
+    @casting({{ NODE_DATATYPE_CASTING_FUNCITON(n.node) }})
+    {%- endif %}
+    def {{ n.node_varname }}(self):
+        return self.extract_{{ n.node_varname }}()
+    {%- if NODE_VARNAME_IS_INVALID_IN_PYTHON(n.node_varname) %}
+    """
+    {%- endif %}
+
+{%- endfor %}
+{#- ##################################################################################### #}
+{#-                    END: DEFINITION FOR leaf-node, leaflist-node ...                   #}
+{#- ##################################################################################### #}

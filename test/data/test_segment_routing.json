@@ -1,0 +1,66 @@
+{
+    "test-ip-route-static": [
+        {
+            "VHT-ip-cfg:ip" : {
+                "route" : {
+                    "ip-route-static" : [
+                        {
+                            "prefix" : "1.1.1.1",
+                            "mask" : 24,
+                            "out-if" : "xe10"
+                        },
+                        {
+                            "prefix" : "2.2.2.2",
+                            "mask" : 24,
+                            "description" : "This is route number 2",
+                            "out-if" : "xe0"
+                        }
+                    ]
+                }
+            },
+            "VHT-ospf-cfg:router" : {
+                "ospf" : {
+                    "process-id" : [
+                        {
+                            "id" : 0,
+                            "network" : [
+                                {
+                                    "area" : 0,
+                                    "ip" : "1.1.1.1",
+                                    "wildcard" : "255.255.255.0"
+                                }
+                            ],
+                            "passive-interface" : {
+                                "interface" :["ge0", "ge1", "ge12"]
+                            }
+                        }
+                    ]
+                }
+            }
+
+        },
+        {
+            "VHT-ip-cfg:ip" : {
+                "route" : {
+                    "ip-route-static" : [
+                        {
+                            "prefix" : "2.2.2.2",
+                            "mask" : 24,
+                            "description" : "This is route number 2 but diff",
+                            "out-if" : "xe12"
+                        }
+                    ]
+                }
+            },
+            "VHT-ospf-cfg:router" : {
+                "ospf" : {
+                    "process-id" : [
+                        {
+                            "id" : 1
+                        }
+                    ]
+                }
+            }
+        }
+    ]
+}

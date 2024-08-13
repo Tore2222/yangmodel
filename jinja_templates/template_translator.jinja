@@ -1,0 +1,219 @@
+
+
+class {{ node_classname }}(Translator):
+    class Yangify(TranslatorData):
+        path = "{{ node_path }}"
+
+        def __init__(self, *args, **kwargs):
+            super({{ node_classname }}.Yangify, self).__init__(*args, **kwargs)
+
+            self.indent = "{{ translator_cli_indent }}"
+            self.submode_indent = "{{ translator_cli_submode_indent }}"
+
+
+            {%- if NODE_IS_LIST_NODE(node) %}
+            self.cli_fmt      = "{{ trans_listnode_cli_format }}"
+            self.undo_cli_fmt = "{{ trans_listnode_undo_cli_format }}"
+            {%- else %}
+            self.cli_fmt = None
+            {%- endif %}
+
+            {%- if cli_has_submode %}
+            self.cli_exit = "exit"
+            {%- else %}
+            self.cli_exit = None
+            {%- endif %}
+
+        def is_same_cli_cfg(self, cfg1, cfg2):
+            {%- if NODE_IS_LIST_NODE(node) %}
+            return all([cfg1[k] == cfg2[k] for k in {{ listnode_keys }} ])
+            {%- else %}
+            return cfg1 == cfg2
+            {%- endif %}
+
+        def extract_cli_data2(self, cli_data):
+            pass
+
+        def extract_cli_data(self, element):
+            cli_data = { k : element[k] for k in element}
+            for k in element:
+                if '-' in k:
+                    new_k = k.replace('-', '_')
+                    cli_data[new_k] = element[k]
+
+            self.extract_cli_data2(cli_data)
+            return cli_data
+
+        def extract_element(self, source):
+            try:
+                elm = source.goto(self.path).value if source else None
+                return elm
+            except Exception:
+                return None
+
+        def extract_candidate_cli_data(self):
+            elm = self.extract_element(source=self.candidate)
+            cli_data = self.extract_cli_data(elm) if elm else {}
+            return cli_data
+
+        def extract_running_cli_data(self):
+            elm = self.extract_element(source=self.running)
+            cli_data = self.extract_cli_data(elm) if elm else {}
+            return cli_data
+
+        {%- if not NODE_IS_LIST_NODE(node) and cli_has_submode %}
+        @debug_function(log_enter=True, log_exit=True)
+        def pre_process(self):
+            running_cli   = self.extract_running_cli_data()
+            candidate_cli = self.extract_candidate_cli_data()
+            if not self.running or not self.is_same_cli_cfg(candidate_cli, running_cli):
+                if self.cli_fmt:
+                    command = self.cli_fmt.format(**candidate_cli)
+                    self.result.add_command(self.indent + command)
+
+        @debug_function(log_enter=True, log_exit=True)
+        def post_process(self):
+            running_cli   = self.extract_running_cli_data()
+            candidate_cli = self.extract_candidate_cli_data()
+            if not self.running or not self.is_same_cli_cfg(candidate_cli, running_cli):
+                if self.cli_fmt and self.cli_exit:
+                    if len(self.indent) == 0:
+                        self.result.add_command(self.submode_indent + self.cli_exit + "\n!")
+                    else:
+                        self.result.add_command(self.submode_indent + self.cli_exit)
+        {%- endif %}
+
+    {#- ------------------------------------------------------------------------------------- #}
+    {#-                   BEGIN: DEFINITION FOR Yangfify if node is list-node                 #}
+    {#- ------------------------------------------------------------------------------------- #}
+    {%- if NODE_IS_LIST_NODE(node) %}
+
+        @debug_function(log_exit=True, log_return=True)
+        def _stringify_add_to_list_command(self, element):
+            command = self.cli_fmt.format(**element)
+            return self.indent + command
+
+        @debug_function(log_exit=True, log_return=True)
+        def _stringify_remove_from_list_command(self, element):
+            command = self.undo_cli_fmt.format(**element)
+            return self.indent + command
+
+        @debug_function(log_exit=True, log_return=True)
+        def pre_process_list(self):
+            if self.to_remove:
+                for elm in self.to_remove:
+                    cli_data = self.extract_cli_data(elm)
+                    command = self._stringify_remove_from_list_command(cli_data)
+                    self.result.add_command(command)
+
+                    debug_line(f"@removed-element = {elm} with @command='{command}'")
+
+        @debug_function(log_enter=True, log_exit=True)
+        def pre_process(self):
+            candidate_cli = self.extract_candidate_cli_data()
+            command = self._stringify_add_to_list_command(candidate_cli)
+            self.result = self.root_result.new_section(command)
+
+            debug_line(f"@new-section <{command}>")
+
+        @debug_function(log_enter=True, log_exit=True)
+        def post_process(self):
+            if self.result is None:
+                candidate_cli = self.extract_candidate_cli_data()
+                command = self._stringify_add_to_list_command(candidate_cli)
+                self.root_result.pop_section(command)
+            {%- if cli_has_submode %}
+            else:
+                self.result.add_command(self.submode_indent + self.cli_exit)
+                if len(self.indent) == 0:
+                    self.result.add_command("!")
+            {%- endif %}
+
+    {%- endif %}
+    {#- ------------------------------------------------------------------------------------- #}
+    {#-                   END: DEFINITION FOR Yangfify if node is list-node                   #}
+    {#- ------------------------------------------------------------------------------------- #}
+
+
+    def __init__(self, *args, **kwargs):
+        super({{ node_classname }}, self).__init__(*args, **kwargs)
+
+
+{#- ##################################################################################### #}
+{#-                   DEFINITION FOR Container, ListNode                                  #}
+{#- ##################################################################################### #}
+
+{%- for n in node_sub_container_nodes %}
+    {%- if NODE_VARNAME_IS_INVALID_IN_PYTHON(n.node_varname) %}
+    """
+    {%- endif %}
+
+    {%- if not cli_has_submode %}
+    {{ n.node_varname }} = None
+    {%- else %}
+    {{ n.node_varname }} = {{ n.node_classname }}
+    {%- endif %}
+
+    {%- if NODE_VARNAME_IS_INVALID_IN_PYTHON(n.node_varname) %}
+    """
+    {%- endif %}
+{%- endfor %}
+
+{%- for n in node_sub_list_nodes %}
+    {{ n.node_varname }} = {{ n.node_classname }}
+{%- endfor %}
+
+
+{#- ##################################################################################### #}
+{#-                   DEFINITION FOR leaf-node, leaflist-node ...                         #}
+{#- ##################################################################################### #}
+
+{%- for n in node_sub_remained_nodes %}
+    {%- if n.node_default %}
+    """
+        @default = {{ n.node_default }}
+    """
+    {%- endif %}
+
+    {%- if not cli_has_submode %}
+
+    {{ n.node_varname }} = unneeded
+
+    {%- elif NODE_IS_LIST_NODE(node) and n.node_varname in listnode_keys %}
+
+    {{ n.node_varname }} = unneeded
+
+    {%- else %}
+
+    def gen_command_{{ n.node_varname }}(self, value):
+        if value:
+            command = "{{ n.trans_leaffamily_cli_fmt }}".format(value)
+        else:
+            {%- if n.node_default %}
+            command = "{{ n.trans_leaffamily_cli_fmt }}".format(default)
+            {%- else %}
+            command = "{{ n.trans_leaffamily_undo_cli_fmt }}".format(value)
+            {%- endif %}
+
+        self.yy.result.add_command(self.yy.submode_indent + command)
+
+    def gen_diff_command_{{ n.node_varname }}(self, value):
+        if value:
+            command = "{{ n.trans_leaffamily_cli_fmt }}".format(value)
+        else:
+            {%- if n.node_default %}
+            command = "{{ n.trans_leaffamily_cli_fmt }}".format(default)
+            {%- else %}
+            command = "{{ n.trans_leaffamily_undo_cli_fmt }}".format(value)
+            {%- endif %}
+
+        self.yy.result.add_command(self.yy.submode_indent + command)    
+
+    @debug_function(log_exit=True, log_return=True)
+    def {{ n.node_varname }}(self, value):
+        if self.yy.running:
+            return self.gen_diff_command_{{ n.node_varname }}(value)
+        else:
+            return self.gen_command_{{ n.node_varname }}(value)
+    {%- endif %}
+{%- endfor %}

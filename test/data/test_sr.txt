@@ -1,0 +1,62 @@
+segment-routing
+  connected-prefix-sid
+    address-family ipv4
+      1.2.3.4/32 index 1
+      10.2.3.4/32 absolute 20
+     exit
+    exit
+  exit
+!
+segment-routing traffic-eng
+  policy MYPOL1
+    binding-sid mpls 100
+    exit
+  policy MYPOL2
+    binding-sid mpls 333
+    candidate-paths
+      exit
+    exit
+      preference 100
+        exit
+      preference 101
+        exit
+  segment-list name POL1
+    exit
+    index 1 mpls label 32
+    index 2 mpls prefix 30.30.30.30
+    index 3 mpls adjacency 7.7.7.7
+
+***
+segment-routing
+  connected-prefix-sid
+    address-family ipv4
+      1.2.3.4/32 index 1
+      10.2.3.4/32 absolute 20
+     exit
+    exit
+  exit
+!
+segment-routing traffic-eng
+  policy MYPOL1
+    binding-sid mpls 100
+    exit
+  policy MYPOL2
+    binding-sid mpls 333
+    candidate-paths
+      exit
+    exit
+      preference 100
+        exit
+      preference 101
+        exit
+  segment-list name POL1
+    exit
+    index 1 mpls label 32
+    index 2 mpls prefix 30.30.30.30
+    index 3 mpls adjacency 7.7.7.7
+
+***
+
+***
+
+***

@@ -1,0 +1,22 @@
+<config xmlns="http://viettel.com/vht/yang/vht-bgp-cfg">
+    <router>
+        <bgp>
+            <as>3<as>
+            <bgp>
+                <router-id>3.3.3.3<router-id>
+                <log-neighbor-changes/>
+            <bgp>
+            <neighbor>
+                <peer-group>
+                    <name>VI_DU</name>
+                    <password>
+                        <type>0</type>
+                        <text>vidu</text>
+                    <password>
+                    <remote-as>100</remote-as>
+                    <update-source>xe6</update-source>
+                </peer-group>
+            </neighbor>
+        </bgp>
+    </router>
+</config>

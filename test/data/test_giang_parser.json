@@ -1,0 +1,79 @@
+{"VHT-segment-routing:segment-routing": 
+    {
+      "mpls": {
+        "connected-prefix-sid-map": {
+          "address-family": {
+            "ipv4": {
+              "prefixes": [
+                {
+                  "ipprefix": "12.12.12.3/32",
+                  "index": "200"
+                },
+                {
+                  "ipprefix": "13.14.15.16/32",
+                  "index": "300"
+                }
+              ]
+            }
+          }
+        },
+        "global-block": {
+          "range-end": "15000",
+          "range-start": "14720"
+        },
+        "local-block": {
+          "range-end": "700000",
+          "range-start": "60000"
+        }
+      },
+      "traffic-eng": {
+        "policy": [
+          {
+            "name": "VI_DU",
+            "binding-sid": {
+              "mpls": "100"
+            },
+            "candidate-paths": {
+              "preference": [
+                {
+                  "preference-value": "1000"
+                },
+                {
+                  "preference-value": "1999"
+                },
+                {
+                  "preference-value": "2000"
+                }
+              ]
+            },
+            "color-endpoint": {
+              "color": "200",
+              "end-point": "14.14.14.14"
+            }
+          }
+        ],
+        "segment-list": [
+          {
+            "name": "EXAMPLE",
+            "segment-entry": [
+              {
+                "index": "1",
+                "mpls": {
+                  "label": "100"
+                }
+              },
+              {
+                "index": "2",
+                "mpls": {
+                  "label": "200"
+                }
+              }
+            ]
+          },
+          {
+            "name": "dfjsduht"
+          }
+        ]
+      }
+    }
+}

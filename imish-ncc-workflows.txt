@@ -1,0 +1,48 @@
+[IMISH] #configure terminal (nocommit) -------------> [IMI]:                                                                                    |[IMISH-NCC]                                                             
+                                                        1. is there another IMISH process in CONFIG-MODE ?                                      |ncc: netconf-client object
+                                                        |                                                                                       |
+                                                        |                                                                                       |
+    VTY configuration is \<-----------------DENY--------|-IF-YES                                                                                |
+    locked by other VTY                                 |                                                                                       |
+                                                        |                                                                                       |
+                                                 #TODO: 2. is NETCONF-YANG enabled ?                                                            |
+                                                        |                                                                                       |
+                                                        |-IF-YES----|condition_1 = (imish-ncc is NOT started)                                   |
+                                                                    |condition_2 = (imish-ncc lock candidate-db success)                        |
+                                                                    |                                                                           |
+    VTY configuration is \<-----------------DENY-IF return -1/-2 ---|-IF NOT(condition_1 and condition_2)                                       |              INIT    0. create prctl signal (parent_pid)
+    locked by other NETCONF CLIENT                                  |   use Linux-cmd "imish-ncc-cmd --start --lock-db=candidate"\ -------------|------------> START   1. ncc.connect()
+                                                                    |   (check /run/imish-ncc.pid file)                                         |
+                                                                    |   return  0: if success                                                   |              LOCK-DB 2. if ncc.lock_candidate() failed,   return -1
+                                                                    |          -1: lock-by-other-netconf-client                                 |
+                                                                    |          -2: INTERNAL-ERROR                                               |
+                                                                    |                                                                           |
+                                                                    |-IF DIFF(candidate-db, running-db)                                         |
+                                                                    |   use Linux-cmd "imish-ncc-cmd --check-candidate-db-change ---------------|------------>
+                                                                    |   return 0: no-change                                                     |
+                                                                    |          1: has-change                                                    |
+                                                                    |   #TODO: apply change or discard                                          |
+                                                                    |   use Linux-cmd "imish-ncc-cmd --discard-candidate-db-change" ------------|------------> 1. if ncc.discard_change() success/failed, return 0/-1
+                                                                    |   return  0: SUCCESS                                                      |
+                                                                    |          -1: INTERNAL_ERROR                                               |
+[IMISH] (config)# ...<----------------------ALLOW-------------------|
+
+
+
+[IMISH] exit-config-mode or ---------------------------> [IMI]:                                                                                 |[IMISH-NCC]
+    - exit-config-mode EVENT reasons:                   |                                                                                       |
+        + user use "end" or "exit" command              |                                                                                       |
+        + timeout of imish                              |                                                                                       |
+    - note: if imish in commit-mode, \                  1. is NETCONF-YANG enabled ?                                                            |
+            TODO after committed                        |                                                                                       |
+                                                        |-IF-YES----| 1. synchronize zebos.conf with running-db                                 |
+                                                                    | 2. unlock candidate-db                                                    |
+                                                                    | 3. stop imish-ncc proccess                                                |              [OPERATION_1]
+                                                                    |   use Linux-cmd "imish-ncc-cmd --sync --unlock-db=candidate --stop -------|------------> 1. ncc.sync_cli_with_db(running):
+                                                                    |   return 0: success                                                       |              2. ncc.unlock_candidate()
+                                                                    |         -1: INTERNAL-ERROR                                                |              3. ncc.disconnect()
+                                                                    |                                                                           |              4. exit(0)
+
+[IMISH] is kill by "kill (-9) or pkill" ------------------------------------------------------------------------------------------------------->|[IMISH-NCC]
+                                                                    |                                                                           | recv event: parent process is killed
+                                                                    |                                                                           |   run *[OPERATION_1]

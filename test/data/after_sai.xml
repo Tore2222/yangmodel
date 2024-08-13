@@ -1,0 +1,23 @@
+<?xml version="1.0" ?>
+<config xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+  <nacm xmlns="urn:ietf:params:xml:ns:yang:ietf-netconf-acm">
+    <enable-nacm>true</enable-nacm>
+    <read-default>permit</read-default>
+    <write-default>deny</write-default>
+    <exec-default>permit</exec-default>
+    <enable-external-groups>true</enable-external-groups>
+  </nacm>
+  <segment-routing xmlns="http://viettel.com/vht/yang/VHT-segment-routing">
+    <mpls>
+      <connected-prefix-sid-map>
+        <address-family>
+          <ipv4>
+            <prefixes>
+              <ipprefix>14.14.14.14/32</ipprefix>
+            </prefixes>
+          </ipv4>
+        </address-family>
+      </connected-prefix-sid-map>
+    </mpls>
+  </segment-routing>
+</config>

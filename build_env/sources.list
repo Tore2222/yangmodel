@@ -1,0 +1,6 @@
+deb http://172.20.1.22:8081/repository/ubuntu-archive/ bionic main restricted
+deb http://172.20.1.22:8081/repository/ubuntu-archive/ bionic-updates main restricted
+deb http://172.20.1.22:8081/repository/ubuntu-archive/ bionic universe
+deb http://172.20.1.22:8081/repository/ubuntu-archive/ bionic-updates universe
+deb http://172.20.1.22:8081/repository/ubuntu-archive/ bionic multiverse
+deb http://172.20.1.22:8081/repository/ubuntu-archive/ bionic-updates multiverse

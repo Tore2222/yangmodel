@@ -1,0 +1,22 @@
+
+
+class {{ node_classname_impl }}({{ node_classname }}):
+    class Yangify({{ node_classname }}.Yangify):
+        def __init__(self, *args, **kwargs):
+            super({{ node_classname_impl }}.Yangify, self).__init__(*args, **kwargs)
+
+
+    def __init__(self, *args, **kwargs):
+        super({{ node_classname_impl }}, self).__init__(*args, **kwargs)
+
+
+{%- for n in node_sub_container_nodes %}
+    {%- if cli_has_submode %}
+    {{ n.node_varname }} = {{ n.node_classname_impl }}
+    {%- endif %}
+{%- endfor %}
+
+
+{%- for n in node_sub_list_nodes %}
+    {{ n.node_varname }} = {{ n.node_classname_impl }}
+{%- endfor %}

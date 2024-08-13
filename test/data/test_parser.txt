@@ -1,0 +1,39 @@
+segment routing policy MYOPTION
+ip route 1.1.1.1 24
+  description 12323132
+  out-if xe10
+  exit
+!
+ip route 2.2.2.2 24
+  out-if ce1
+  metric 100
+  exit
+!
+ip vrf VOD_MSN
+ip route 0.0.0.0 32
+  description DEFAULT ROUTE
+  out-if ce2
+  exit
+ip vrf OAM
+ip vrf NSM
+segment-routing
+  connected-prefix-sid
+    address-family ipv4
+      1.2.3.4/32 index 1
+      10.2.3.4/32 absolute 20
+  global-block 16000 29000
+  local-block 17000 32000
+segment-routing traffic-eng
+  policy MYPOL1
+    binding-sid mpls 100
+    color 200 endpoint 3.5.7.9
+  policy MYPOL2
+    binding-sid mpls 333
+    candidate-paths
+      preference-value 100
+      preference-value 101
+    color 222 endpoint 2.4.6.8
+  segment-list name POL1
+    index 1 mpls label 32
+    index 2 mpls prefix 30.30.30.30
+    index 3 mpls adjacency 7.7.7.7

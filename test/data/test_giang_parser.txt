@@ -1,0 +1,8 @@
+segment-routing
+ connected-prefix-sid
+  address-family ipv4
+   10.0.0.0/8 index 200
+   198.168.10.10/32 index 300
+ global-block 14720 15000
+ local-block 60000 700000
+!

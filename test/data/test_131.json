@@ -1,0 +1,20 @@
+{"VHT-segment-routing:segment-routing":
+    {"mpls":
+      {"connected-prefix-sid-map":
+        {"address-family":
+          {"ipv4":
+            {"prefixes":
+            [
+              {"ipprefix":"14.14.14.14\/32",
+               "absolute":"1300"
+              },
+              {"ipprefix":"14.14.14.14\/32",
+              "absolute":"1300"
+             } 
+            ]
+            }
+          }
+        }
+      }
+    }
+}

@@ -1,0 +1,263 @@
+module VHT-interface-cfg {
+  namespace "http://viettel.com/vht/yang/VHT-interface-cfg";
+  prefix vht-if-cfg;
+
+  import ietf-inet-types {
+    prefix inet;
+  }
+
+  organization
+    "VHT";
+  contact
+    "Viettel";
+  description
+    "VHT Interface Yang Model";
+
+  revision 2024-06-19 {
+    description
+      "Created";
+  }
+ 
+  grouping description-grouping {
+    leaf description {
+      description
+        "Description of interfaces";
+      type string;
+    }
+  }
+  
+  grouping mtu-grouping {    
+    leaf mtu {
+      type uint16 {
+        range "64..65535";
+      }
+    }
+  }  
+  
+  grouping shutdown-grouping {
+    leaf shutdown {
+      type empty;
+    }
+  }  
+ 
+  grouping config-if-grouping {
+    container channel-group {
+      leaf id {
+        type uint16 {
+          range "1..65535";
+        }
+      }
+      leaf mode {
+        type enumeration {
+          enum "active";
+          enum "passive";
+        }
+      }
+    }  
+    uses description-grouping;
+    leaf enable-ldp {
+      type enumeration {
+        enum "both";
+        enum "ipv4";
+        enum "ipv6";
+      }
+    }    
+    leaf enable-rsvp {
+      type empty;
+    }
+    container ip {
+      choice address-choice {
+        container address {
+          choice address-type { 
+            leaf dhcp {
+              description
+                "DHCP option allowed only on Management interface";
+              type empty;
+            }
+            list ip-address {
+			  key "address mask";
+              leaf address {
+                type inet:ipv4-address;
+              }
+              leaf mask {
+                type uint8 {
+                  range "0..32";
+                }
+              }
+              leaf secondary {
+                type empty;
+              }
+            }
+          }
+        }   
+        container unnumbered {
+          leaf interface {
+            description
+              "Name of other interface used";
+            type string;
+          }
+        }
+      }
+      container vrf {
+        container forwarding {
+          leaf vrf-name {
+            type string;
+          }
+        }
+      }
+    }
+    container bridge-group {
+      leaf bridge-id {
+        type uint8 {
+          range "1..32";
+        }
+      }
+      leaf spanning-tree {
+        type enumeration {
+          enum "disable";
+          enum "enable";
+        }
+        default "enable";
+      }
+    }
+    leaf load-interval {
+      description
+        "Load interval delay in seconds";
+      type uint16 {
+        range "10..300";
+      }
+    }    
+    leaf label-switching {
+      type empty;
+    }
+    uses mtu-grouping;
+    leaf switchport-true {
+      description
+        "If exists, interface is L2 and has the 'switchport' command";
+      type empty;
+    }
+    container switchport {
+      leaf mode {
+        type enumeration {
+          enum "access";
+          enum "trunk";
+        }
+      }
+      container trunk {
+        when "../mode = 'trunk'";
+        container native {
+          leaf vlan { 
+            type int16 {
+              range "1..4094";
+            }
+          }
+        }
+        container allowed {
+          container vlan {
+            choice vlan-choice {
+              leaf all {
+                description
+                  "Allow every vlan";
+                type empty;
+              }
+              leaf add {
+                description
+                  "List of vlans allowed on interface";
+                type string;
+              } 
+            }
+          }
+        }
+      }
+      container access {
+        leaf vlan { 
+          type int16 {
+            range "2..4094";
+          }
+        }
+      }
+    }    
+    leaf speed {
+      type enumeration {
+        enum "10m";
+        enum "100m";
+        enum "1g";
+        enum "10g";
+        enum "20g";
+        enum "25g";
+        enum "40g";
+        enum "50g";
+        enum "100g";
+      }
+    }    
+  }
+  
+  grouping config-subif-grouping {
+    leaf switchport {
+      type empty;
+    }
+    uses description-grouping;
+    container encapsulation {
+      container dot1q {
+        leaf vlan {
+          type int16 {
+            range "1..4093";
+          }
+        }
+      }
+    }
+    container ip {
+      container address {
+        list ip-address {
+		  key "address mask";
+          leaf address {
+            type inet:ipv4-address;
+          }
+          leaf mask {
+            type uint8 {
+              range "0..32";
+            }
+          }
+          leaf secondary {
+            type empty;
+          }
+        }
+      }
+      container vrf {
+        container forwarding {
+          leaf vrf-name {
+            type string;
+          }
+        }
+      }
+    }
+    uses mtu-grouping;
+    uses shutdown-grouping;
+  }
+  
+  container interfaces {
+    list interface {
+      description
+        "Global interface configuration subcommands";
+      key "name";
+      leaf name {
+        description
+          "Name of interface";
+        type string;
+      }
+      uses config-if-grouping;
+      container subinterfaces {
+        list subinterface {
+          key "name";
+          leaf name {
+            description
+              "Name of subinterface";
+            type string;
+          }
+          uses config-subif-grouping;
+        }
+      }
+    }
+  }
+}
+

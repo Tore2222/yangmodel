@@ -1,0 +1,492 @@
+module VHT-bgp-cfg {
+  namespace "http://viettel.com/vht/yang/VHT-bgp-cfg";
+  prefix vht-bgp-cfg;
+
+  import ietf-inet-types {
+    prefix inet;
+  }
+
+  organization
+    "VHT";
+  contact
+    "Viettel";
+  description
+    "VHT BGP Yang Model";
+
+  revision 2024-06-13 {
+    description
+      "Created";
+  }
+  
+  grouping global-bgp-grouping {
+    container bgp {
+      leaf router-id {
+        type inet:ipv4-address;
+      }
+      leaf log-neighbor-changes {
+        type empty;
+      }
+    }
+  }
+  
+  grouping global-timers-grouping {
+    container timers {
+      container bgp {
+        leaf keepalive-interval {
+          type uint16 {
+            range "0..65535";
+          }       
+        }
+        leaf holdtime {
+          type uint16 {
+            range "0..65535";
+          }       
+        }
+      }
+    }
+  }
+  
+  grouping neighbor-activate-grouping {
+    leaf activate {
+      type empty;
+    }
+  }
+
+  grouping neighbor-peer-group-grouping {
+    leaf peer-group {
+      type string;  //TODO: Add condition testing that the peer-group has been previously created
+    }
+  }
+
+  grouping neighbor-password-grouping {
+    container password {
+      leaf type {
+        description
+          "0 is clear text, 7 is encrypt";
+        type uint8 {
+          range "0 | 7";
+        }
+      }
+      leaf text {
+        type string;
+      }
+    }
+  }
+  
+  grouping neighbor-remote-as-grouping {
+    leaf remote-as {
+      type uint32 {
+        range "1..4294967295";
+      }
+    } 
+  }
+  grouping neighbor-send-community-grouping {
+    leaf send-community {
+      type enumeration {
+        enum both;
+        enum extended;
+        enum standard;
+      }
+      default both;
+    }
+  }
+  grouping neighbor-route-reflector-client-grouping {
+    leaf route-reflector-client {
+      type empty;
+    }
+  }
+  grouping neighbor-route-map-grouping {
+    list route-map {
+      key "name";
+      leaf name {
+        type string;
+      }
+      leaf direction {
+        type enumeration {
+          enum in;
+          enum out;
+        }
+        mandatory true;
+      }
+    }
+  }
+  grouping neighbor-next-hop-self-grouping {
+    leaf next-hop-self {
+      type empty;
+    }
+  }
+  grouping neighbor-send-label-grouping {
+    container send-label {
+      leaf send-label {
+        type enumeration {
+          enum implicit-null;
+          enum explicit-null;
+        }
+        default explicit-null;
+      }
+    }
+  }
+  grouping neighbor-default-originate-grouping {
+    leaf default-originate {
+      type empty;
+    }
+  }
+  grouping neighbor-update-source-grouping {
+    leaf update-source {
+      description
+        "Interface name or ip address";
+      type union {
+        type inet:ipv4-address;
+        type inet:ipv6-address;
+        type string;
+      }
+    }
+  }
+  
+  grouping global-neighbor-suboption-grouping {
+    uses neighbor-password-grouping;
+    uses neighbor-remote-as-grouping;
+    uses neighbor-update-source-grouping;
+  }
+  
+  grouping af-ipv4-unicast-neighbor-suboption-grouping {
+    uses neighbor-activate-grouping;
+    uses neighbor-route-map-grouping;
+    uses neighbor-route-reflector-client-grouping;
+    uses neighbor-next-hop-self-grouping;
+    uses neighbor-send-community-grouping;
+    uses neighbor-send-label-grouping;
+  }
+  grouping af-ipv4-vrf-neighbor-suboption-grouping {
+    uses neighbor-activate-grouping;
+    uses neighbor-remote-as-grouping;
+    uses neighbor-route-map-grouping;
+    uses neighbor-route-reflector-client-grouping;
+    uses neighbor-next-hop-self-grouping;
+    uses neighbor-send-community-grouping;
+  }
+  grouping af-vpnv4-neighbor-suboption-grouping{
+    uses neighbor-activate-grouping;
+    uses neighbor-route-map-grouping;
+    uses neighbor-route-reflector-client-grouping;
+    uses neighbor-next-hop-self-grouping;
+    uses neighbor-send-community-grouping;  
+  }
+  grouping af-rtfilter-neighbor-suboption-grouping {
+    uses neighbor-activate-grouping;
+    uses neighbor-route-reflector-client-grouping;
+    uses neighbor-default-originate-grouping;
+    uses neighbor-send-community-grouping;  
+  }
+  grouping af-link-state-neighbor-suboption-grouping {
+    uses neighbor-activate-grouping;
+    uses neighbor-route-reflector-client-grouping;
+    uses neighbor-send-community-grouping;  
+  }
+   
+  grouping global-neighbor-grouping {
+    container neighbor {
+      list peer-group {
+        key "name";
+        leaf name {
+          type string;
+        }
+        uses global-neighbor-suboption-grouping;
+      }
+      list ipv4-neighbor {
+        key "address";
+        leaf address {
+          type inet:ipv4-address;
+        }
+        uses neighbor-peer-group-grouping;
+        uses global-neighbor-suboption-grouping;
+      }
+      list ipv6-neighbor {
+        key "address";
+        leaf address {
+          type inet:ipv6-address;
+        }
+        uses neighbor-peer-group-grouping;
+        uses global-neighbor-suboption-grouping;
+      }
+    }
+  }
+ 
+  grouping af-ipv4-unicast-neighbor-grouping {
+    container neighbor {
+      list peer-group {
+        key "name";
+        leaf name {
+          type string;
+        }
+        uses af-ipv4-unicast-neighbor-suboption-grouping;
+      }
+      list ipv4-neighbor {
+        key "address";
+        leaf address {
+          type inet:ipv4-address;
+        }
+        uses neighbor-peer-group-grouping;
+        uses af-ipv4-unicast-neighbor-suboption-grouping;
+      }
+      list ipv6-neighbor {
+        key "address";
+        leaf address {
+          type inet:ipv6-address;
+        }
+        uses neighbor-peer-group-grouping;
+        uses af-ipv4-unicast-neighbor-suboption-grouping;
+      }
+    }
+  }
+  
+  grouping af-ipv4-vrf-neighbor-grouping {
+    container neighbor {
+      list peer-group {
+        key "name";
+        leaf name {
+          type string;
+        }
+        uses af-ipv4-vrf-neighbor-suboption-grouping;
+      }
+      list ipv4-neighbor {
+        key "address";
+        leaf address {
+          type inet:ipv4-address;
+        }
+        uses neighbor-peer-group-grouping;
+        uses af-ipv4-vrf-neighbor-suboption-grouping;
+      }
+      list ipv6-neighbor {
+        key "address";
+        leaf address {
+          type inet:ipv6-address;
+        }
+        uses neighbor-peer-group-grouping;
+        uses af-ipv4-vrf-neighbor-suboption-grouping;
+      }
+    }
+  }
+  
+  grouping af-vpnv4-neighbor-grouping {
+    container neighbor {
+      list peer-group {
+        key "name";
+        leaf name {
+          type string;
+        }
+        uses af-vpnv4-neighbor-suboption-grouping;
+      }
+      list ipv4-neighbor {
+        key "address";
+        leaf address {
+          type inet:ipv4-address;
+        }
+        uses neighbor-peer-group-grouping;
+        uses af-vpnv4-neighbor-suboption-grouping;
+      }
+      list ipv6-neighbor {
+        key "address";
+        leaf address {
+          type inet:ipv6-address;
+        }
+        uses neighbor-peer-group-grouping;
+        uses af-vpnv4-neighbor-suboption-grouping;
+      }
+    }
+  }
+  
+  grouping af-rtfilter-neighbor-grouping {
+    container neighbor {
+      list peer-group {
+        key "name";
+        leaf name {
+          type string;
+        }
+        uses af-rtfilter-neighbor-suboption-grouping;
+      }
+      list ipv4-neighbor {
+        key "address";
+        leaf address {
+          type inet:ipv4-address;
+        }
+        uses neighbor-peer-group-grouping;
+        uses af-rtfilter-neighbor-suboption-grouping;
+      }
+      list ipv6-neighbor {
+        key "address";
+        leaf address {
+          type inet:ipv6-address;
+        }
+        uses neighbor-peer-group-grouping;
+        uses af-rtfilter-neighbor-suboption-grouping;
+      }
+    }
+  }
+  
+  grouping af-link-state-neighbor-grouping {
+    container neighbor {
+      list peer-group {
+        key "name";
+        leaf name {
+          type string;
+        }
+        uses af-link-state-neighbor-suboption-grouping;
+      }
+      list ipv4-neighbor {
+        key "address";
+        leaf address {
+          type inet:ipv4-address;
+        }
+        uses neighbor-peer-group-grouping;
+        uses af-link-state-neighbor-suboption-grouping;
+      }
+      list ipv6-neighbor {
+        key "address";
+        leaf address {
+          type inet:ipv6-address;
+        }
+        uses neighbor-peer-group-grouping;
+        uses af-link-state-neighbor-suboption-grouping;
+      }
+    }
+  }  
+  
+  grouping af-ipv4-bgp-grouping {  
+    container bgp {
+      container nexthop-trigger {
+        leaf delay {
+          type uint8 {
+            range "0..100";
+          }
+        }
+      }
+    }
+  }
+  
+  grouping af-ipv4-network-grouping {
+    list network {
+      key "prefix mask";
+      leaf prefix {
+        description
+          "Prefix of network";
+        type inet:ipv4-address;
+      }
+      leaf mask {
+        type uint8 {
+          range "0..32";
+        }
+      }
+      leaf route-map {
+        type string;
+      }
+    }
+  }
+  
+  grouping af-ipv4-redist-common-grouping {
+    leaf route-map {
+      description
+        "Route map reference";
+      type string;
+    }
+  }
+  
+  grouping af-ipv4-redistribute-grouping {
+    container redistribute {
+      description
+        "Redistribute information from another routing protocol";
+      container connected {
+        uses af-ipv4-redist-common-grouping;
+      }
+      container isis {
+        uses af-ipv4-redist-common-grouping;
+      }
+      list ospf {
+        key "process-id";
+        leaf process-id {
+          type uint16 {
+            range "1..65535";
+          }
+        }
+        uses af-ipv4-redist-common-grouping;  
+      }
+      container rip {
+        uses af-ipv4-redist-common-grouping;
+      }
+      container static {
+        uses af-ipv4-redist-common-grouping;
+      }
+    }
+  }
+  
+  grouping af-ipv4-unicast-segment-routing-grouping {
+    container segment-routing {
+      leaf mpls {
+        type empty;
+      }
+    }
+  }
+  
+  grouping global-address-family-grouping {
+    container address-family {
+      container ipv4 {
+        container unicast {
+          uses af-ipv4-bgp-grouping;
+          uses af-ipv4-unicast-neighbor-grouping;
+          uses af-ipv4-network-grouping;
+          uses af-ipv4-redistribute-grouping;
+          uses af-ipv4-unicast-segment-routing-grouping;
+        }
+        list vrf {
+          key "vrf-name";
+          leaf vrf-name {
+            type string;
+          }       
+          uses af-ipv4-bgp-grouping;
+          uses af-ipv4-vrf-neighbor-grouping;
+          uses af-ipv4-network-grouping;
+          uses af-ipv4-redistribute-grouping;
+        }
+      }
+      container rtfilter {
+        container unicast {
+          uses af-rtfilter-neighbor-grouping;
+        }
+      }
+      container vpnv4 {
+        container unicast {
+          uses af-vpnv4-neighbor-grouping;
+        }
+      } 
+      container link-state {
+        container link-state {
+          uses af-link-state-neighbor-grouping;
+        }       
+      }
+    }
+  }
+  
+  container router {
+    description
+     "Router BGP configuration";
+    container bgp {
+      leaf as {
+        type uint32 {
+          range "1..4294967295";
+        }
+      }
+      uses global-bgp-grouping;
+      uses global-neighbor-grouping;      
+      uses global-timers-grouping;
+      uses global-address-family-grouping;
+    }
+  }
+  container bgp {
+    container nexthop-trigger {
+      leaf enable {
+        type empty;
+      }
+    }
+  }
+}
+
